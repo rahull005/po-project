@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: po-application
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/centralized_po
+    username: postgres
+    password: root
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
