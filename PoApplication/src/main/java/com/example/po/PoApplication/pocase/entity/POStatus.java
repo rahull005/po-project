@@ -6,5 +6,7 @@ public enum POStatus {
     PENDING_CHECKER,
     APPROVED,
     REPAIR,
-    REJECTED
+    REJECTED,
+    FLEX_PROCESSING,
+    PO_CREATED
 }

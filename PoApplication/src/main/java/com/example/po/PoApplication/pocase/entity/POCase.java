@@ -74,4 +74,10 @@ public class POCase {
     @Version
     @Column(nullable = false)
     private Long version;
+
+    @Column(name = "po_number", unique = true)
+    private String poNumber;
+
+    @Column(name = "flex_request_id")
+    private String flexRequestId;
 }
