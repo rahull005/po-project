@@ -27,3 +27,6 @@ management:
 integration:
   flex:
     base-url: http://localhost:8081
+    scenario: SUCCESS
+    connect-timeout-ms: 3000
+    read-timeout-ms: 10000

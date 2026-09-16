@@ -3,6 +3,7 @@ package com.example.po.PoApplication.pocase.service;
 import com.example.po.PoApplication.flex.client.FlexClient;
 import com.example.po.PoApplication.pocase.dto.FlexPORequest;
 import com.example.po.PoApplication.pocase.dto.FlexPOResponse;
+import com.example.po.PoApplication.pocase.entity.AuditAction;
 import com.example.po.PoApplication.pocase.entity.POCase;
 import com.example.po.PoApplication.pocase.entity.POStatus;
 import com.example.po.PoApplication.pocase.repository.POCaseRepository;
@@ -48,7 +49,7 @@ public class POProcessingService {
 
         auditService.record(
                 poCase,
-                null,
+                AuditAction.FLEX_PROCESSING,
                 oldStatus,
                 POStatus.FLEX_PROCESSING,
                 "SYSTEM",
@@ -82,7 +83,7 @@ public class POProcessingService {
 
         auditService.record(
                 poCase,
-                null,
+                AuditAction.PO_CREATED,
                 POStatus.FLEX_PROCESSING,
                 POStatus.PO_CREATED,
                 "SYSTEM",

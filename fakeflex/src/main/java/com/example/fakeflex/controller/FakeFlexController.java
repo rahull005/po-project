@@ -2,12 +2,10 @@ package com.example.fakeflex.controller;
 
 import com.example.fakeflex.dto.FakeFlexPORequest;
 import com.example.fakeflex.dto.FakeFlexPOResponse;
+import com.example.fakeflex.dto.FakeFlexScenario;
 import com.example.fakeflex.service.FakeFlexService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/fake-flex/api/v1")
@@ -21,8 +19,26 @@ public class FakeFlexController {
 
     @PostMapping("/pay-orders")
     public FakeFlexPOResponse createPayOrder(
-            @Valid @RequestBody FakeFlexPORequest request) {
 
-        return service.createPayOrder(request);
+            @RequestHeader(
+                    value = "X-Flex-Scenario",
+                    defaultValue = "SUCCESS"
+            )
+            FakeFlexScenario scenario,
+
+            @Valid
+            @RequestBody
+            FakeFlexPORequest request) {
+
+        return service.createPayOrder(
+                request,
+                scenario
+        );
+    }
+
+
+    @GetMapping("/pay-orders/{requestId}")
+    public FakeFlexPOResponse getPayOrder(@PathVariable String requestId){
+        return service.getPayOrder(requestId);
     }
 }

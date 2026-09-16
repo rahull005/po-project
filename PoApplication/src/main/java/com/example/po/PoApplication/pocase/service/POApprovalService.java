@@ -17,11 +17,18 @@ public class POApprovalService {
     private final POCaseRepository poCaseRepository;
     private final POApprovalRepository poApprovalRepository;
     private final POAuditService auditService;
+    private final POProcessingService processingService;
 
-    public POApprovalService(POCaseRepository poCaseRepository,POApprovalRepository poApprovalRepository,POAuditService auditService){
+    public POApprovalService(
+            POCaseRepository poCaseRepository,
+            POApprovalRepository poApprovalRepository,
+            POAuditService auditService,
+            POProcessingService processingService
+    ){
         this.poCaseRepository = poCaseRepository;
         this.poApprovalRepository = poApprovalRepository;
         this.auditService = auditService;
+        this.processingService = processingService;
     }
 
 
@@ -46,7 +53,17 @@ public class POApprovalService {
         poCaseRepository.save(poCase);
 
         //audit
-        auditService.record(poCase, AuditAction.APPROVED,oldStatus,POStatus.APPROVED,checkerId,request.comments());
+        auditService.record(
+                poCase,
+                AuditAction.APPROVED,
+                oldStatus,
+                POStatus.APPROVED,
+                checkerId,
+                request.comments()
+        );
+
+        //flex
+        processingService.processWithFlex(caseId);
 
 
         return new ApprovalActionResponse(

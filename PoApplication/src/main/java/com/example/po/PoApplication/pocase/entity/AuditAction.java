@@ -11,5 +11,9 @@ public enum AuditAction {
 
     MOVED_TO_REPAIR,
 
-    RESUBMITTED
+    RESUBMITTED,
+
+    FLEX_PROCESSING,
+
+    PO_CREATED
 }
