@@ -30,3 +30,9 @@ integration:
     scenario: SUCCESS
     connect-timeout-ms: 3000
     read-timeout-ms: 10000
+
+outbox:
+  worker:
+    fixed-delay-ms: 2000
+    stale-lock-minutes: 5
+    batch-size: 10
