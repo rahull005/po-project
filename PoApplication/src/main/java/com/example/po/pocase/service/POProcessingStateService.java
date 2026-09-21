@@ -12,17 +12,35 @@ import java.time.LocalDateTime;
 public class POProcessingStateService {
 
     private final POCaseRepository poCaseRepository;
+    private final POAuditService auditService;
 
     public POProcessingStateService(
-            POCaseRepository poCaseRepository) {
+            POCaseRepository poCaseRepository,
+            POAuditService auditService
+            ) {
 
-        this.poCaseRepository =
-                poCaseRepository;
+        this.poCaseRepository = poCaseRepository;
+        this.auditService = auditService;
     }
 
     @Transactional
     public void markFlexProcessing(
-            POCase poCase) {
+            String caseId) {
+
+        POCase poCase =
+                poCaseRepository.findByCaseId(caseId)
+                        .orElseThrow(() -> new IllegalStateException("No Cases found"));
+
+        if (poCase.getStatus()
+                != POStatus.APPROVED) {
+
+            throw new IllegalStateException(
+                    "PO case is not APPROVED"
+            );
+        }
+
+        POStatus oldStatus =
+                poCase.getStatus();
 
         poCase.setStatus(
                 POStatus.FLEX_PROCESSING
@@ -33,6 +51,15 @@ public class POProcessingStateService {
         );
 
         poCaseRepository.save(poCase);
+
+        auditService.record(
+                poCase,
+                null,
+                oldStatus,
+                POStatus.FLEX_PROCESSING,
+                "SYSTEM",
+                "Case submitted for Flex processing"
+        );
     }
 
     @Transactional

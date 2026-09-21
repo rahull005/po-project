@@ -2,7 +2,6 @@ package com.example.po.pocase.service;
 
 import com.example.po.pocase.dto.ApprovalActionResponse;
 import com.example.po.pocase.dto.RepairPORequest;
-import com.example.po.PoApplication.pocase.entity.*;
 import com.example.po.pocase.entity.*;
 import com.example.po.pocase.repository.POApprovalRepository;
 import com.example.po.pocase.repository.POCaseRepository;

@@ -20,6 +20,10 @@ public class OutboxWorker {
     private void process(){
         try {
 
+            //handles the stuck event
+            processor.recoverStaleEvents();
+
+            //process the events
             processor.processNext();
 
         } catch (Exception e) {
@@ -30,4 +34,7 @@ public class OutboxWorker {
             );
         }
     }
+
+
+
 }

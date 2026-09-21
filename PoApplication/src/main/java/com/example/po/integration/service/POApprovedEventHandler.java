@@ -33,26 +33,13 @@ public class POApprovedEventHandler {
         this.processingService = processingService;
     }
 
-    public void handle(
-            OutboxEvent outboxEvent)
-            throws Exception {
+    public void handle(OutboxEvent outboxEvent){
+        POApprovedEvent event = objectMapper.readValue(outboxEvent.getPayload(),POApprovedEvent.class);
+        POCase poCase = poCaseRepository.findByCaseId(event.caseId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "PO Case not found with the id : "+event.caseId()
+                ));
 
-        POApprovedEvent event =
-                objectMapper.readValue(
-                        outboxEvent.getPayload(),
-                        POApprovedEvent.class
-                );
-
-        POCase poCase =
-                poCaseRepository
-                        .findByCaseId(
-                                event.caseId()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalStateException(
-                                        "PO case not found: "
-                                                + event.caseId()
-                                ));
 
         log.info(
                 "Handling PO_APPROVED event caseId={} eventId={}",
@@ -60,12 +47,9 @@ public class POApprovedEventHandler {
                 outboxEvent.getEventId()
         );
 
-        if (poCase.getStatus() != POStatus.APPROVED) {
-
+        if(poCase.getStatus() != POStatus.APPROVED){
             log.warn(
-                    "PO case not in APPROVED state caseId={} actualStatus={}",
-                    poCase.getCaseId(),
-                    poCase.getStatus()
+                    "PO_Case is not in approved state with case_id "+poCase.getCaseId()
             );
 
             return;

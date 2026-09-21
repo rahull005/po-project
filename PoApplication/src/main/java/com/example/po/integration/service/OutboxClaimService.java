@@ -64,4 +64,29 @@ public class OutboxClaimService {
 
         return event;
     }
+
+
+    @Transactional
+    public void recoverStaleEvents(
+            int staleLockMinutes) {
+
+        entityManager.createNativeQuery(
+        """
+            UPDATE outbox_event
+            SET status = 'RETRY',
+                available_at = CURRENT_TIMESTAMP,
+                locked_at = NULL,
+                last_error = 'Recovered stale processing event',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'PROCESSING'
+              AND locked_at <
+                  CURRENT_TIMESTAMP
+                  - (?1 * INTERVAL '1 minute')
+        """)
+                .setParameter(
+                        1,
+                        staleLockMinutes
+                )
+                .executeUpdate();
+    }
 }

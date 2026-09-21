@@ -86,4 +86,10 @@ public class OutboxProcessor {
             );
         }
     }
+
+
+    //recover events from stuck for long
+    public void recoverStaleEvents() {
+        claimService.recoverStaleEvents(5);
+    }
 }
