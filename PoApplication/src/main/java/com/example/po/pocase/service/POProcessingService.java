@@ -45,7 +45,7 @@ public class POProcessingService {
         poCase.setFlexRequestId(flexRequestId);
         poCase.setStatus(POStatus.FLEX_PROCESSING);
 
-        poCaseRepository.save(poCase);
+        poCase = poCaseRepository.save(poCase);
 
         auditService.record(
                 poCase,
@@ -79,7 +79,7 @@ public class POProcessingService {
         poCase.setPoNumber(response.poNumber());
         poCase.setStatus(POStatus.PO_CREATED);
 
-        poCaseRepository.save(poCase);
+        poCase = poCaseRepository.save(poCase);
 
         auditService.record(
                 poCase,
