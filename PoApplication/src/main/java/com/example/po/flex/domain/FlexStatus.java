@@ -6,5 +6,6 @@ public enum FlexStatus {
     SYSTEM_FAILURE,
     TIMEOUT,
     NOT_FOUND,
+    DUPLICATE_REQUEST,
     UNKNOWN
 }

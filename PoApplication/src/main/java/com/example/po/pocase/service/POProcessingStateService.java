@@ -1,8 +1,10 @@
 package com.example.po.pocase.service;
 
+import com.example.po.pocase.entity.AuditAction;
 import com.example.po.pocase.entity.POCase;
 import com.example.po.pocase.entity.POStatus;
 import com.example.po.pocase.repository.POCaseRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,67 +18,113 @@ public class POProcessingStateService {
 
     public POProcessingStateService(
             POCaseRepository poCaseRepository,
-            POAuditService auditService
-            ) {
-
+            POAuditService auditService) {
         this.poCaseRepository = poCaseRepository;
         this.auditService = auditService;
     }
 
     @Transactional
-    public void markFlexProcessing(
-            String caseId) {
+    public void markFlexProcessing(String caseId, String flexRequestId) {
 
-        POCase poCase =
-                poCaseRepository.findByCaseId(caseId)
-                        .orElseThrow(() -> new IllegalStateException("No Cases found"));
+        POCase poCase = findCase(caseId);
 
-        if (poCase.getStatus()
-                != POStatus.APPROVED) {
+        if (poCase.getStatus() == POStatus.PO_CREATED) {
+            return;
+        }
 
+        if (poCase.getStatus() != POStatus.APPROVED &&
+                poCase.getStatus() != POStatus.FLEX_PROCESSING) {
             throw new IllegalStateException(
-                    "PO case is not APPROVED"
+                    "PO case cannot enter FLEX_PROCESSING from status "
+                            + poCase.getStatus()
             );
         }
 
-        POStatus oldStatus =
-                poCase.getStatus();
+        POStatus oldStatus = poCase.getStatus();
 
-        poCase.setStatus(
-                POStatus.FLEX_PROCESSING
-        );
+        if (poCase.getFlexRequestId() == null) {
+            poCase.setFlexRequestId(flexRequestId);
+        }
 
-        poCase.setUpdatedAt(
-                LocalDateTime.now()
-        );
+        if (poCase.getStatus() != POStatus.FLEX_PROCESSING) {
+            poCase.setStatus(POStatus.FLEX_PROCESSING);
+            auditService.record(
+                    poCase,
+                    AuditAction.FLEX_PROCESSING,
+                    oldStatus,
+                    POStatus.FLEX_PROCESSING,
+                    "SYSTEM",
+                    "Case submitted for Flex processing"
+            );
+        }
+
+        poCase.setUpdatedAt(LocalDateTime.now());
+        poCaseRepository.save(poCase);
+    }
+
+    @Transactional
+    public void markPOCreated(String caseId, String poNumber) {
+
+        POCase poCase = findCase(caseId);
+
+        if (poCase.getStatus() == POStatus.PO_CREATED) {
+            if (!poNumber.equals(poCase.getPoNumber())) {
+                throw new IllegalStateException(
+                        "PO case is already created with a different PO number"
+                );
+            }
+            return;
+        }
+
+        POStatus oldStatus = poCase.getStatus();
+
+        poCase.setPoNumber(poNumber);
+        poCase.setStatus(POStatus.PO_CREATED);
+        poCase.setUpdatedAt(LocalDateTime.now());
 
         poCaseRepository.save(poCase);
 
         auditService.record(
                 poCase,
-                null,
+                AuditAction.PO_CREATED,
                 oldStatus,
-                POStatus.FLEX_PROCESSING,
+                POStatus.PO_CREATED,
                 "SYSTEM",
-                "Case submitted for Flex processing"
+                "PO successfully created in Flex: " + poNumber
         );
     }
 
     @Transactional
-    public void markPOCreated(
-            POCase poCase,
-            String poNumber) {
+    public void moveToRepair(String caseId, String errorCode, String message) {
 
-        poCase.setPoNumber(poNumber);
+        POCase poCase = findCase(caseId);
 
-        poCase.setStatus(
-                POStatus.PO_CREATED
-        );
+        if (poCase.getStatus() == POStatus.REPAIR) {
+            return;
+        }
 
-        poCase.setUpdatedAt(
-                LocalDateTime.now()
-        );
+        POStatus oldStatus = poCase.getStatus();
 
+        poCase.setStatus(POStatus.REPAIR);
+        poCase.setUpdatedAt(LocalDateTime.now());
         poCaseRepository.save(poCase);
+
+        auditService.record(
+                poCase,
+                AuditAction.MOVED_TO_REPAIR,
+                oldStatus,
+                POStatus.REPAIR,
+                "SYSTEM",
+                "Flex business failure code=" + errorCode
+                        + ", message=" + message
+        );
+    }
+
+    private POCase findCase(String caseId) {
+        return poCaseRepository.findByCaseId(caseId)
+                .orElseThrow(() ->
+                        new EntityNotFoundException(
+                                "PO case not found: " + caseId
+                        ));
     }
 }

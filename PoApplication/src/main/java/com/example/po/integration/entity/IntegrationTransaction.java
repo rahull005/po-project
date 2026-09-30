@@ -1,6 +1,5 @@
 package com.example.po.integration.entity;
 
-import com.example.po.pocase.entity.IntegrationStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

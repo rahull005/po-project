@@ -1,4 +1,4 @@
-package com.example.po.pocase.entity;
+package com.example.po.integration.entity;
 
 public enum IntegrationStatus {
     CREATED,

@@ -20,7 +20,7 @@ public class POApprovalController {
     public ApprovalActionResponse approve(
             @PathVariable String caseId,
             @RequestHeader("X-USER-ID") String checkerId,
-            @RequestBody ApprovalActionRequest request
+            @Valid @RequestBody ApprovalActionRequest request
             ){
         return approvalService.approve(caseId,checkerId,request);
     }

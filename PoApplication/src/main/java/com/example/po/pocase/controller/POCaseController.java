@@ -16,7 +16,7 @@ public class POCaseController {
         this.poCaseService = poCaseService;
     }
 
-    @PostMapping("/create")
+    @PostMapping
     public CreatePOResponse create(
             @RequestHeader("X-USER-ID") String userId,
             @Valid @RequestBody CreatePORequest request){

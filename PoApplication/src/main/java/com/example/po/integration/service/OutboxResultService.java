@@ -11,88 +11,81 @@ import java.time.LocalDateTime;
 @Service
 public class OutboxResultService {
 
+    private static final int MAX_ATTEMPTS = 5;
+
     private final OutboxEventRepository repository;
 
-    public OutboxResultService(
-            OutboxEventRepository repository) {
-
+    public OutboxResultService(OutboxEventRepository repository) {
         this.repository = repository;
     }
 
     @Transactional
     public void markCompleted(Long eventId) {
-
-        OutboxEvent event =
-                repository.findById(eventId)
-                        .orElseThrow();
-
-        event.setStatus(
-                OutboxStatus.COMPLETED
-        );
-
-        event.setUpdatedAt(
-                LocalDateTime.now()
-        );
-
+        OutboxEvent event = get(eventId);
+        event.setStatus(OutboxStatus.COMPLETED);
         event.setLockedAt(null);
-
+        event.setUpdatedAt(LocalDateTime.now());
         repository.save(event);
     }
 
+    @Transactional
+    public void markBusinessFailure(
+            Long eventId,
+            Exception exception) {
+        OutboxEvent event = get(eventId);
+        event.setStatus(OutboxStatus.COMPLETED);
+        event.setLastError(exception.getMessage());
+        event.setLockedAt(null);
+        event.setUpdatedAt(LocalDateTime.now());
+        repository.save(event);
+    }
 
     @Transactional
-    public void handleFailure(
+    public void markReconciliationRequired(
+            Long eventId,
+            Exception exception) {
+        OutboxEvent event = get(eventId);
+        event.setStatus(OutboxStatus.RECONCILIATION_REQUIRED);
+        event.setLastError(exception.getMessage());
+        event.setLockedAt(null);
+        event.setUpdatedAt(LocalDateTime.now());
+        repository.save(event);
+    }
+
+    @Transactional
+    public void handleRetryableFailure(
             OutboxEvent event,
             Exception exception) {
 
-        OutboxEvent current =
-                repository.findById(
-                        event.getId()
-                ).orElseThrow();
-
-        current.setLastError(
-                exception.getMessage()
-        );
-
+        OutboxEvent current = get(event.getId());
+        current.setLastError(exception.getMessage());
         current.setLockedAt(null);
-        current.setUpdatedAt(
-                LocalDateTime.now()
-        );
+        current.setUpdatedAt(LocalDateTime.now());
 
-        if (current.getAttempts() >= 5) {
-
-            current.setStatus(
-                    OutboxStatus.RECONCILIATION_REQUIRED
-            );
-
+        if (current.getAttempts() >= MAX_ATTEMPTS) {
+            current.setStatus(OutboxStatus.RECONCILIATION_REQUIRED);
         } else {
-
-            current.setStatus(
-                    OutboxStatus.RETRY
-            );
-
+            current.setStatus(OutboxStatus.RETRY);
             current.setAvailableAt(
-                    calculateNextAttempt(
-                            current.getAttempts()
-                    )
+                    calculateNextAttempt(current.getAttempts())
             );
         }
 
         repository.save(current);
     }
 
+    private LocalDateTime calculateNextAttempt(int attempt) {
+        long seconds = Math.min(
+                300,
+                5L * (long) Math.pow(3, Math.max(0, attempt - 1))
+        );
+        return LocalDateTime.now().plusSeconds(seconds);
+    }
 
-    //calculate next attempt
-    private LocalDateTime calculateNextAttempt(
-            int attempt) {
-
-        long seconds =
-                Math.min(
-                        300,
-                        5L * (long) Math.pow(3, attempt - 1)
-                );
-
-        return LocalDateTime.now()
-                .plusSeconds(seconds);
+    private OutboxEvent get(Long eventId) {
+        return repository.findById(eventId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Outbox event not found: " + eventId
+                ));
     }
 }

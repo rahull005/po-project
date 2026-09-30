@@ -21,7 +21,6 @@ public class POApprovalService {
     private final POCaseRepository poCaseRepository;
     private final POApprovalRepository poApprovalRepository;
     private final POAuditService auditService;
-    private final POProcessingService processingService;
     private final OutboxService outboxService;
 
     //logger
@@ -31,13 +30,11 @@ public class POApprovalService {
             POCaseRepository poCaseRepository,
             POApprovalRepository poApprovalRepository,
             POAuditService auditService,
-            POProcessingService processingService,
             OutboxService outboxService
     ){
         this.poCaseRepository = poCaseRepository;
         this.poApprovalRepository = poApprovalRepository;
         this.auditService = auditService;
-        this.processingService = processingService;
         this.outboxService = outboxService;
     }
 
@@ -80,10 +77,7 @@ public class POApprovalService {
         );
 
 
-        //flex
-//        processingService.processWithFlex(caseId);
-
-        //implemented outbox-pattern
+        // Transactional outbox: the approved state and processing event commit together.
         outboxService
                 .createPOApprovedEvent(caseId,poApproval.getId());
 

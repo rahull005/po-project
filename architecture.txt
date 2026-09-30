@@ -1,0 +1,65 @@
+Centralized Pay Order System - Current Production-Oriented Architecture
+
+Current services:
+- PoApplication : 8080
+- fakeflex      : 8081
+
+Constraints:
+- No Docker for now.
+- External systems are simulated with real HTTP services.
+- Service discovery (Eureka) will be added only when the number of independently deployed services justifies it.
+
+Request / approval flow:
+Maker -> SUBMITTED -> PENDING_CHECKER -> Checker
+    -> APPROVED -> transactional outbox event
+    -> REJECTED -> REPAIR -> Maker resubmits -> PENDING_CHECKER
+
+Reliable processing flow:
+Checker approval + OUTBOX_EVENT are committed in one DB transaction.
+Outbox worker claims NEW/RETRY events with PostgreSQL FOR UPDATE SKIP LOCKED.
+A bounded async executor processes claimed events.
+
+PO_APPROVED event:
+OutboxAsyncExecutor
+    -> OutboxProcessor
+    -> POApprovedEventHandler
+    -> POProcessingService
+    -> FlexGateway (application port)
+    -> HttpFlexGatewayAdapter (infrastructure adapter)
+    -> WebClient
+    -> fakeflex
+
+Flex operation:
+APPROVED
+    -> FLEX_PROCESSING
+    -> SUCCESS              -> PO_CREATED
+    -> BUSINESS_FAILURE     -> REPAIR
+    -> SYSTEM_FAILURE       -> retry with backoff
+    -> TIMEOUT              -> reconciliation required
+
+Idempotency:
+The Flex operation key is scoped to the approval attempt:
+<caseId>:FLEX:CREATE_PO:APPROVAL:<approvalId>
+This means a retry of the same approval reuses the same key, while a repaired/resubmitted case gets a new key.
+
+Observability:
+- Correlation ID filter
+- MDC-aware async task decorator
+- structured business/integration logs
+- sensitive account information is not logged
+- consistent REST API error responses
+
+Persistence:
+- PostgreSQL
+- Flyway migrations
+- ddl-auto=validate
+- optimistic locking on POCase
+- audit history
+- integration transaction history
+- transactional outbox
+
+External abstraction rule:
+Business/application code depends on ports such as FlexGateway.
+HTTP/WebClient details stay in infrastructure adapters.
+Future integrations should follow the same pattern:
+PrintingGateway, DeliveryGateway, TlmGateway, CentralBankGateway.

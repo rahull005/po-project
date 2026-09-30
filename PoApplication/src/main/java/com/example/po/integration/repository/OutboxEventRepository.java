@@ -1,6 +1,7 @@
 package com.example.po.integration.repository;
 
 import com.example.po.integration.entity.OutboxEvent;
+import com.example.po.integration.entity.OutboxEventType;
 import com.example.po.integration.entity.OutboxStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -14,7 +15,7 @@ public interface OutboxEventRepository
 
     Optional<OutboxEvent> findFirstByAggregateIdAndEventTypeAndStatus(
             String aggregateId,
-            String eventType,
+            OutboxEventType eventType,
             OutboxStatus status
     );
 }

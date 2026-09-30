@@ -1,63 +1,96 @@
 package com.example.po.pocase.service;
 
-import com.example.po.flex.client.FlexClient;
-import com.example.po.pocase.dto.FlexPORequest;
-import com.example.po.pocase.dto.FlexPOResponse;
-import com.example.po.pocase.entity.AuditAction;
+import com.example.po.flex.domain.FlexCreatePORequest;
+import com.example.po.flex.domain.FlexCreatePOResponse;
+import com.example.po.flex.domain.FlexStatus;
+import com.example.po.flex.infrastructure.exception.FlexBusinessException;
+import com.example.po.flex.infrastructure.exception.FlexSystemException;
+import com.example.po.flex.infrastructure.exception.FlexTimeoutException;
+import com.example.po.flex.port.FlexGateway;
+import com.example.po.integration.entity.IntegrationTransaction;
+import com.example.po.integration.service.IntegrationTransactionService;
 import com.example.po.pocase.entity.POCase;
 import com.example.po.pocase.entity.POStatus;
 import com.example.po.pocase.repository.POCaseRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 @Service
 public class POProcessingService {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(POProcessingService.class);
+
     private final POCaseRepository poCaseRepository;
-    private final FlexClient flexClient;
-    private final POAuditService auditService;
+    private final FlexGateway flexGateway;
+    private final POProcessingStateService stateService;
+    private final IntegrationTransactionService integrationTransactionService;
 
     public POProcessingService(
             POCaseRepository poCaseRepository,
-            FlexClient flexClient,
-            POAuditService auditService
-    ){
+            FlexGateway flexGateway,
+            POProcessingStateService stateService,
+            IntegrationTransactionService integrationTransactionService) {
         this.poCaseRepository = poCaseRepository;
-        this.auditService = auditService;
-        this.flexClient = flexClient;
+        this.flexGateway = flexGateway;
+        this.stateService = stateService;
+        this.integrationTransactionService = integrationTransactionService;
     }
 
-    public void processWithFlex(String caseId){
-        POCase poCase = poCaseRepository.findByCaseId(caseId)
-                .orElseThrow(()->new EntityNotFoundException("No Case found with the following Id "+caseId));
+    public void processWithFlex(String caseId, Long approvalId) {
 
-        if(poCase.getStatus() != POStatus.APPROVED){
+        POCase poCase = poCaseRepository.findByCaseId(caseId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "PO case not found: " + caseId
+                ));
+
+        if (poCase.getStatus() == POStatus.PO_CREATED) {
+            log.info(
+                    "Flex processing already completed caseId={} poNumber={}",
+                    caseId,
+                    poCase.getPoNumber()
+            );
+            return;
+        }
+
+        if (poCase.getStatus() != POStatus.APPROVED &&
+                poCase.getStatus() != POStatus.FLEX_PROCESSING) {
             throw new IllegalStateException(
-                    "Only APPROVED cases can be sent to Flex"
+                    "Only APPROVED or FLEX_PROCESSING cases can be sent to Flex. "
+                            + "Current status=" + poCase.getStatus()
             );
         }
 
-        String flexRequestId = generateFlexRequestId();
+        String idempotencyKey =
+                caseId + ":FLEX:CREATE_PO:APPROVAL:" + approvalId;
 
-        POStatus oldStatus = poCase.getStatus();
+        String requestId = poCase.getFlexRequestId();
+        if (requestId == null || !requestId.endsWith("-" + approvalId)) {
+            requestId = "FLEX-" + caseId + "-" + approvalId;
+        }
 
-        poCase.setFlexRequestId(flexRequestId);
-        poCase.setStatus(POStatus.FLEX_PROCESSING);
+        IntegrationTransaction integrationTransaction =
+                integrationTransactionService.startOrGet(
+                        caseId,
+                        requestId,
+                        idempotencyKey
+                );
 
-        poCase = poCaseRepository.save(poCase);
+        stateService.markFlexProcessing(caseId, requestId);
 
-        auditService.record(
-                poCase,
-                AuditAction.FLEX_PROCESSING,
-                oldStatus,
-                POStatus.FLEX_PROCESSING,
-                "SYSTEM",
-                "Request sent to Flex"
+        log.info(
+                "Starting Flex processing caseId={} requestId={} idempotencyKey={} integrationStatus={}",
+                caseId,
+                requestId,
+                idempotencyKey,
+                integrationTransaction.getStatus()
         );
 
-        FlexPORequest flexPORequest = new FlexPORequest(
-                flexRequestId,
+        FlexCreatePORequest request = new FlexCreatePORequest(
+                requestId,
+                idempotencyKey,
                 poCase.getCaseId(),
                 determineCommand(poCase),
                 poCase.getDebitAccount(),
@@ -65,52 +98,91 @@ public class POProcessingService {
                 poCase.getCurrency()
         );
 
-        FlexPOResponse response =
-                flexClient.createPayOrder(flexPORequest);
+        try {
+            FlexCreatePOResponse response =
+                    flexGateway.createPayOrder(request);
 
-        if (!"SUCCESS".equals(response.status())) {
+            if (response.status() == FlexStatus.SUCCESS ||
+                    response.status() == FlexStatus.DUPLICATE_REQUEST) {
 
-            throw new IllegalStateException(
-                    "Flex processing failed: "
-                            + response.message()
+                if (response.poNumber() == null ||
+                        response.poNumber().isBlank()) {
+                    throw new FlexSystemException(
+                            "Flex returned success without a PO number",
+                            null
+                    );
+                }
+
+                integrationTransactionService.markSuccess(
+                        integrationTransaction.getId()
+                );
+
+                stateService.markPOCreated(
+                        caseId,
+                        response.poNumber()
+                );
+
+                log.info(
+                        "Flex processing completed caseId={} requestId={} poNumber={}",
+                        caseId,
+                        requestId,
+                        response.poNumber()
+                );
+                return;
+            }
+
+            if (response.status() == FlexStatus.BUSINESS_FAILURE) {
+                integrationTransactionService.markBusinessFailure(
+                        integrationTransaction.getId(),
+                        response.errorCode(),
+                        response.message()
+                );
+
+                stateService.moveToRepair(
+                        caseId,
+                        response.errorCode(),
+                        response.message()
+                );
+                return;
+            }
+
+            throw new FlexSystemException(
+                    "Unexpected Flex response status=" + response.status(),
+                    null
             );
+
+        } catch (FlexBusinessException e) {
+            integrationTransactionService.markBusinessFailure(
+                    integrationTransaction.getId(),
+                    e.getErrorCode(),
+                    e.getMessage()
+            );
+
+            stateService.moveToRepair(
+                    caseId,
+                    e.getErrorCode(),
+                    e.getMessage()
+            );
+
+        } catch (FlexTimeoutException e) {
+            integrationTransactionService.markTimeout(
+                    integrationTransaction.getId(),
+                    e.getMessage()
+            );
+            throw e;
+
+        } catch (FlexSystemException e) {
+            integrationTransactionService.markSystemFailure(
+                    integrationTransaction.getId(),
+                    e.getMessage()
+            );
+            throw e;
         }
-
-        poCase.setPoNumber(response.poNumber());
-        poCase.setStatus(POStatus.PO_CREATED);
-
-        poCase = poCaseRepository.save(poCase);
-
-        auditService.record(
-                poCase,
-                AuditAction.PO_CREATED,
-                POStatus.FLEX_PROCESSING,
-                POStatus.PO_CREATED,
-                "SYSTEM",
-                "PO successfully created in Flex: "
-                        + response.poNumber()
-        );
-
     }
 
     private String determineCommand(POCase poCase) {
-        /*
-         * Temporary rule.
-         *
-         * Actual command selection will be based
-         * on debit-account category/business rules.
-         */
-
+        // Temporary development rule. Replace with the approved
+        // debit-account-category rule when that business rule is available.
         return "1010";
     }
-
-    private String generateFlexRequestId() {
-        return UUID.randomUUID()
-                .toString()
-                .replace("-","")
-                .substring(0,16)
-                .toUpperCase();
-    }
-
-
 }

@@ -3,12 +3,13 @@ package com.example.po.pocase.service;
 import com.example.po.pocase.dto.CreatePORequest;
 import com.example.po.pocase.dto.CreatePOResponse;
 import com.example.po.pocase.entity.ApprovalStatus;
+import com.example.po.pocase.entity.AuditAction;
 import com.example.po.pocase.entity.POApproval;
 import com.example.po.pocase.entity.POCase;
 import com.example.po.pocase.entity.POStatus;
 import com.example.po.pocase.repository.POApprovalRepository;
 import com.example.po.pocase.repository.POCaseRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,15 +20,18 @@ public class POCaseService {
     private final POCaseRepository repository;
     private final ApprovalRuleService approvalRuleService;
     private final POApprovalRepository approvalRepository;
+    private final POAuditService auditService;
 
     public POCaseService(
             POCaseRepository repository,
             POApprovalRepository approvalRepository,
-            ApprovalRuleService approvalRuleService) {
+            ApprovalRuleService approvalRuleService,
+            POAuditService auditService) {
 
         this.repository = repository;
         this.approvalRepository = approvalRepository;
         this.approvalRuleService = approvalRuleService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -59,6 +63,15 @@ public class POCaseService {
 
         repository.save(poCase);
 
+        auditService.record(
+                poCase,
+                AuditAction.CASE_CREATED,
+                null,
+                POStatus.SUBMITTED,
+                makerId,
+                "Pay order request created"
+        );
+
         boolean reviewRequired =
                 approvalRuleService.isReviewRequired(poCase);
 
@@ -72,6 +85,15 @@ public class POCaseService {
             approval.setCreatedAt(now);
 
             approvalRepository.save(approval);
+
+            auditService.record(
+                    poCase,
+                    AuditAction.SUBMITTED_FOR_APPROVAL,
+                    POStatus.SUBMITTED,
+                    POStatus.PENDING_CHECKER,
+                    makerId,
+                    "Case submitted for Checker approval"
+            );
 
             poCase.setStatus(POStatus.PENDING_CHECKER);
             poCase.setUpdatedAt(LocalDateTime.now());
@@ -87,18 +109,6 @@ public class POCaseService {
     }
 
     private String generateCaseId() {
-
-        return "PO-" +
-                LocalDateTime.now()
-                        .toString()
-                        .replace("-", "")
-                        .replace(":", "")
-                        .replace(".", "")
-                        .substring(0, 15)
-                + "-" +
-                UUID.randomUUID()
-                        .toString()
-                        .substring(0, 6)
-                        .toUpperCase();
+        return "PO-" + UUID.randomUUID();
     }
 }

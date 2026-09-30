@@ -6,6 +6,8 @@ import com.example.po.integration.entity.OutboxEventType;
 import com.example.po.integration.entity.OutboxStatus;
 import com.example.po.integration.repository.OutboxEventRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -27,6 +29,7 @@ public class OutboxService {
         this.objectMapper = objectMapper;
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
     public void createPOApprovedEvent(
             String caseId,
             Long approvalId) {

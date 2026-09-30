@@ -7,6 +7,7 @@ import com.example.po.pocase.repository.POApprovalRepository;
 import com.example.po.pocase.repository.POCaseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -22,6 +23,7 @@ public class PORepairService {
         this.auditService = auditService;
     }
 
+    @Transactional
     public ApprovalActionResponse repairAndResubmit(String caseId, String userId, RepairPORequest request){
         POCase poCase =
                 poCaseRepository.findByCaseId(caseId)

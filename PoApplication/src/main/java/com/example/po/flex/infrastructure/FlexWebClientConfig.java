@@ -10,23 +10,17 @@ import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
 
-
 @Configuration
 public class FlexWebClientConfig {
 
     @Bean
-    public WebClient webClient(
-            @Value("${integration.flex.base-url}")
-            String baseUrl,
+    public WebClient flexWebClient(
+            @Value("${integration.flex.base-url}") String baseUrl,
+            @Value("${integration.flex.connect-timeout-ms:3000}") int connectTimeoutMs,
+            @Value("${integration.flex.read-timeout-ms:10000}") int readTimeoutMs) {
 
-            @Value("${integration.flex.connect-timeout-ms:3000}")
-            int connectTimeoutMs,
-
-            @Value("${integration.flex.read-timeout-ms:10000}")
-            int readTimeoutMs){
-        HttpClient httpClient = HttpClient
-                .create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS,connectTimeoutMs)
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs)
                 .responseTimeout(Duration.ofMillis(readTimeoutMs));
 
         return WebClient.builder()

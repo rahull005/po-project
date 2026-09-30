@@ -9,15 +9,14 @@ import com.example.po.pocase.service.POProcessingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class POApprovedEventHandler {
 
     private static final Logger log =
-            LoggerFactory.getLogger(
-                    POApprovedEventHandler.class
-            );
+            LoggerFactory.getLogger(POApprovedEventHandler.class);
 
     private final ObjectMapper objectMapper;
     private final POCaseRepository poCaseRepository;
@@ -27,19 +26,32 @@ public class POApprovedEventHandler {
             ObjectMapper objectMapper,
             POCaseRepository poCaseRepository,
             POProcessingService processingService) {
-
         this.objectMapper = objectMapper;
         this.poCaseRepository = poCaseRepository;
         this.processingService = processingService;
     }
 
-    public void handle(OutboxEvent outboxEvent){
-        POApprovedEvent event = objectMapper.readValue(outboxEvent.getPayload(),POApprovedEvent.class);
+    public void handle(OutboxEvent outboxEvent) {
+
+        POApprovedEvent event;
+        try {
+            event = objectMapper.readValue(
+                    outboxEvent.getPayload(),
+                    POApprovedEvent.class
+            );
+        } catch (JacksonException e) {
+            throw new IllegalStateException(
+                    "Invalid PO_APPROVED outbox payload: "
+                            + outboxEvent.getEventId(),
+                    e
+            );
+        }
+
         POCase poCase = poCaseRepository.findByCaseId(event.caseId())
                 .orElseThrow(() -> new IllegalStateException(
-                        "PO Case not found with the id : "+event.caseId()
+                        "PO case not found for outbox event: "
+                                + event.caseId()
                 ));
-
 
         log.info(
                 "Handling PO_APPROVED event caseId={} eventId={}",
@@ -47,16 +59,24 @@ public class POApprovedEventHandler {
                 outboxEvent.getEventId()
         );
 
-        if(poCase.getStatus() != POStatus.APPROVED){
-            log.warn(
-                    "PO_Case is not in approved state with case_id "+poCase.getCaseId()
+        if (poCase.getStatus() == POStatus.PO_CREATED) {
+            log.info(
+                    "PO_APPROVED event already completed caseId={} poNumber={}",
+                    poCase.getCaseId(),
+                    poCase.getPoNumber()
             );
-
             return;
         }
 
-        processingService.processWithFlex(
-                poCase.getCaseId()
-        );
+        if (poCase.getStatus() != POStatus.APPROVED &&
+                poCase.getStatus() != POStatus.FLEX_PROCESSING) {
+            throw new IllegalStateException(
+                    "PO case is not eligible for Flex processing. caseId="
+                            + poCase.getCaseId()
+                            + ", status=" + poCase.getStatus()
+            );
+        }
+
+        processingService.processWithFlex(poCase.getCaseId(), event.approvalId());
     }
 }
