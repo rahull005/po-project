@@ -35,3 +35,47 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         }
     }
 }
+
+/*
+
+                    WITHOUT MDC
+                    ───────────────────────────────
+
+                    Request A → PO-1001
+                    Request B → PO-1002
+
+                    Logs:
+
+                    INFO Received request
+                    INFO Received request
+                    INFO Calling FakeFlex
+                    ERROR FakeFlex failed
+                    INFO Saving PO
+                    INFO PO completed
+
+                    Question:
+                    Which PO failed?
+                    ❌ Difficult to know
+
+
+
+                    WITH MDC
+                    ────────────────────────────────
+
+                    Request A → PO-1001 → ABC123
+                    Request B → PO-1002 → XYZ789
+
+                    Logs:
+
+                    INFO  [ABC123] Received request
+                    INFO  [XYZ789] Received request
+                    INFO  [ABC123] Calling FakeFlex
+                    ERROR [XYZ789] FakeFlex failed
+                    INFO  [ABC123] Saving PO
+                    INFO  [ABC123] PO completed
+
+                    Question:
+                    Which request failed?
+                    ✅ XYZ789
+
+ */

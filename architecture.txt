@@ -1,3 +1,94 @@
+
+
+
+                                      USERS / CHANNELS
+                                            |
+             +------------------------------+------------------------------+
+             |                              |                              |
+             v                              v                              v
+        Web / REST API                 Other Channels                   Flex
+             |                              |                              |
+             +------------------------------+------------------------------+
+                                            |
+                                            v
+                              +-------------------------+
+                              |      PO APPLICATION     |
+                              |         :8080           |
+                              +-------------------------+
+                                            |
+        +-----------------------------------+-----------------------------------+
+        |                                   |                                   |
+        v                                   v                                   v
++------------------+              +-------------------+              +-------------------+
+| Case Management  |              | Approval          |              | Integration      |
+|                  |              | / Workflow        |              | / Outbox         |
++------------------+              +-------------------+              +-------------------+
+        |                                   |                                   |
+        |                                   |                                   |
+        |                       +-----------+-----------+                       |
+        |                       |                       |                       |
+        |                       v                       v                       |
+        |                    Checker                 Repair                     |
+        |                       |                       |                       |
+        |                       +----------+------------+                       |
+        |                                  |                                    |
+        +----------------------------------+------------------------------------+
+                                           |
+                                           v
+                                    PO_OUTBOX_EVENT
+                                           |
+                                        COMMIT
+                                           |
+                                           v
+                                  OUTBOX WORKER
+                                           |
+                                  Bounded Async Pool
+                                           |
+                    +----------------------+----------------------+
+                    |                      |                      |
+                    v                      v                      v
+              Worker-1                 Worker-2               Worker-3
+                    |                      |                      |
+                    +----------------------+----------------------+
+                                           |
+                                           v
+                                 PO Processing Service
+                                           |
+                                           v
+                                    Integration Tx
+                                           |
+                                           v
+                                      FlexGateway
+                                           |
+                                    << abstraction >>
+                                           |
+                                           v
+                              HttpFlexGatewayAdapter
+                                           |
+                                         WebClient
+                                           |
+                                           v
+                                  +----------------+
+                                  |   FAKE FLEX    |
+                                  |      :8081     |
+                                  +----------------+
+                                     |    |    |
+                                     |    |    |
+                                  SUCCESS |  TIMEOUT
+                                          |
+                                   BUSINESS_FAILURE
+
+
+
+
+
+
+
+
+
+
+
+
 Centralized Pay Order System - Current Production-Oriented Architecture
 
 Current services:
@@ -63,3 +154,5 @@ Business/application code depends on ports such as FlexGateway.
 HTTP/WebClient details stay in infrastructure adapters.
 Future integrations should follow the same pattern:
 PrintingGateway, DeliveryGateway, TlmGateway, CentralBankGateway.
+
+

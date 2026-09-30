@@ -2,19 +2,23 @@ spring:
   application:
     name: fake-flex
 
+  config:
+    import: "optional:file:./config/dev-application.yml"
+
 server:
-  port: ${SERVER_PORT:8081}
+  port: ${FLEX_SERVER_PORT}
   shutdown: graceful
 
 spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
+  timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: ${MANAGEMENT_ENDPOINTS:health,info}
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] [corrId=%X{correlationId}] %logger{36} - %msg%n"
+    console: ${LOG_PATTERN}
+

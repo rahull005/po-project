@@ -2,45 +2,49 @@ spring:
   application:
     name: po-application
 
+  config:
+    import: "optional:file:./config/dev-application.yml"
+
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/centralized_po}
-    username: ${DB_USERNAME:postgres}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: false
 
   flyway:
-    enabled: true
+    enabled: ${FLYWAY_ENABLED:true}
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PO_SERVER_PORT}
   shutdown: graceful
 
 spring.lifecycle:
-  timeout-per-shutdown-phase: 30s
+  timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: ${MANAGEMENT_ENDPOINTS:health,info}
 
 integration:
   flex:
-    base-url: ${FLEX_BASE_URL:http://localhost:8081}
-    connect-timeout-ms: ${FLEX_CONNECT_TIMEOUT_MS:3000}
-    read-timeout-ms: ${FLEX_READ_TIMEOUT_MS:10000}
+    base-url: ${FLEX_BASE_URL}
+    connect-timeout-ms: ${FLEX_CONNECT_TIMEOUT_MS}
+    read-timeout-ms: ${FLEX_READ_TIMEOUT_MS}
 
 outbox:
   worker:
-    fixed-delay-ms: ${OUTBOX_WORKER_FIXED_DELAY_MS:2000}
-    stale-lock-minutes: ${OUTBOX_STALE_LOCK_MINUTES:5}
-    batch-size: ${OUTBOX_BATCH_SIZE:10}
+    fixed-delay-ms: ${OUTBOX_WORKER_FIXED_DELAY_MS}
+    stale-lock-minutes: ${OUTBOX_STALE_LOCK_MINUTES}
+    batch-size: ${OUTBOX_BATCH_SIZE}
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] [corrId=%X{correlationId}] %logger{36} - %msg%n"
+    console: ${LOG_PATTERN}
+
