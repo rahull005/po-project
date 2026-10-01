@@ -3,7 +3,15 @@ spring:
     name: po-application
 
   config:
-    import: "optional:file:./config/dev-application.yml"
+    import: "file:../config/dev-application.yml"
+    # the above two dots provided because rectified from previous error
+    #yaml
+    #import: "file:./config/dev-application.yml"
+    #
+    #./ means the working directory, which your log shows is ...\Pay-Order\PoApplication. But your config file lives at ...\Pay-Order\config\dev-application.yml. So Spring will fail with ConfigDataResourceNotFoundException. Choose one:
+    #
+    #Option A: set the run configuration's working directory to ...\Pay-Order.
+    #Option B: change the import to file:../config/dev-application.yml.
 
   datasource:
     url: ${DB_URL}
@@ -13,24 +21,24 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
+      ddl-auto: ${JPA_DDL_AUTO}
     show-sql: false
 
   flyway:
-    enabled: ${FLYWAY_ENABLED:true}
+    enabled: ${FLYWAY_ENABLED}
 
 server:
   port: ${PO_SERVER_PORT}
   shutdown: graceful
 
 spring.lifecycle:
-  timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
+  timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT}
 
 management:
   endpoints:
     web:
       exposure:
-        include: ${MANAGEMENT_ENDPOINTS:health,info}
+        include: ${MANAGEMENT_ENDPOINTS}
 
 integration:
   flex:
@@ -47,4 +55,3 @@ outbox:
 logging:
   pattern:
     console: ${LOG_PATTERN}
-

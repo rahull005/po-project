@@ -10,15 +10,14 @@ server:
   shutdown: graceful
 
 spring.lifecycle:
-  timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
+  timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT}
 
 management:
   endpoints:
     web:
       exposure:
-        include: ${MANAGEMENT_ENDPOINTS:health,info}
+        include: ${MANAGEMENT_ENDPOINTS}
 
 logging:
   pattern:
     console: ${LOG_PATTERN}
-

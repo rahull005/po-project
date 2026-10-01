@@ -1,6 +1,5 @@
 # Local development configuration
 /config/dev-application.yml
-
 # Environment files
 .env
 *.env
